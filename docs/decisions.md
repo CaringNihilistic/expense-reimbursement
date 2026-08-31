@@ -1,36 +1,115 @@
 # Decisions
 
-Log the decisions that actually shaped this codebase — the ones where a real alternative existed and
-you picked one. At least five entries. For each: what you chose, what you rejected, and why. At least
-one entry must be a decision you later reversed — say what changed your mind. It can be any entry
-below, not necessarily the last one; add a **Later reversed:** line to whichever one it is.
+Decisions where a real alternative existed and I picked one. Written at the end of the session that
+produced them, not reconstructed at the end.
 
-## Decision 1
+---
 
-- **Chose:**
-- **Rejected:**
-- **Why:**
+## Decision 1 — Next.js full-stack over a split API and SPA
 
-## Decision 2
+- **Chose:** One Next.js App Router codebase. Server Components read from Postgres during render;
+  Server Actions handle mutations. One deployment.
+- **Rejected:** A separate backend (FastAPI or Express) with a React SPA in front of it, which is
+  the arrangement I have most often seen used for this shape of app.
+- **Why:** The split version costs a second deployment, CORS configuration, token handling, and a
+  client-side data layer — and every endpoint gets written twice, once as a route and once as a
+  typed fetch wrapper. On a twelve-hour budget that is roughly three hours of plumbing that scores
+  nothing against the ten goals. It also makes goal 6 easier to get *wrong*: with a JSON API and a
+  React table it is tempting to fetch everything and filter in the browser, which the brief
+  explicitly forbids. Rendering the list on the server makes doing it correctly the path of least
+  resistance.
+- **Cost I accepted:** "The server" and "the app" become the same process, so the rule about where
+  authorization lives has to be stated and followed deliberately rather than falling out of the
+  architecture. That is Decision 2.
 
-- **Chose:**
-- **Rejected:**
-- **Why:**
+---
 
-## Decision 3
+## Decision 2 — Hand-rolled session auth, and the guard is not in the middleware
 
-- **Chose:**
-- **Rejected:**
-- **Why:**
+- **Chose:** bcryptjs for password hashing, a signed HS256 JWT in an httpOnly cookie via `jose`,
+  and `requireUser()` / `requireApprover()` called *inside* every Server Action and data-loading
+  function. About eighty lines in `src/lib/auth.ts`.
+- **Rejected:** Auth.js / NextAuth with a credentials provider. Also rejected: checking the session
+  in `middleware.ts` and trusting it downstream, which is the pattern most Next.js tutorials show.
+- **Why:** The brief only asks for email and password, and warns that submitting generated code you
+  cannot explain is the most common way to fail. A framework I would have to defend the internals of
+  is a worse trade than eighty lines I wrote. More importantly, middleware is the wrong place for
+  the check: Next.js middleware has been bypassable with a crafted request header (CVE-2025-29927),
+  and Server Actions are public HTTP endpoints anyone can POST to regardless of what the UI renders.
+  Middleware here does nothing but redirect logged-out browsers for cosmetic reasons.
+- **How I know it works:** a session cookie signed with the wrong secret gets past the middleware
+  and is still refused by the page. That is the test that distinguishes a real boundary from a
+  decorative one.
+- **Also:** `bcryptjs` rather than `bcrypt` because the latter is a native module and its build
+  fails on Vercel.
 
-## Decision 4
+---
 
-- **Chose:**
-- **Rejected:**
-- **Why:**
+## Decision 3 — There is no `rejected` status
 
-## Decision 5
+- **Chose:** Four stored statuses — `draft`, `submitted`, `approved`, `paid`. Rejection is an
+  *event*: it moves the report back to `draft` and writes a permanent `report_events` row carrying
+  the reason and the actor. A draft whose most recent event is a rejection renders as "Returned for
+  changes".
+- **Rejected:** Five statuses including a stored `rejected`.
+- **Why:** Goal 4 says a report moves to Approved *or Rejected*, and then says that a rejected
+  report "returns to Draft, where its owner can edit it and submit it again". Both cannot be true of
+  a stored value at once — if the report is back in Draft, nothing is ever left sitting in Rejected,
+  and a status filter for it would always return zero rows. Modelling rejection as an event keeps
+  the literal instruction ("returns to Draft") and keeps the rejection permanently visible where
+  goal 9 says history must live.
+- **What it costs:** "rejected" is not a value in the status filter or the dashboard's status
+  breakdown. Both surface "Returned for changes" instead, derived from the latest event.
+- **How to reverse it:** add `"rejected"` to `STATUSES` in `src/db/schema.ts` and change one branch
+  in `canTransition`. Deliberately kept to a one-line change in case this reading turns out wrong.
 
-- **Chose:**
-- **Rejected:**
-- **Why:**
+---
+
+## Decision 4 — Drizzle over Prisma
+
+- **Chose:** Drizzle ORM over `postgres.js`.
+- **Rejected:** Prisma, which has better documentation and a nicer client.
+- **Why:** Goal 6 requires sorting a paginated list by **the sum of a relation** — a report's total
+  is the sum of its lines, and there is no `total` column (Decision 5). Prisma cannot express an
+  `ORDER BY` over an aggregate of a related table; it supports `_count` and nothing else, so that
+  requirement would have gone through `$queryRaw` anyway. If the hardest query in the application
+  has to be raw SQL regardless, the ORM that makes SQL a first-class citizen is the better fit.
+  Drizzle also keeps the schema as plain TypeScript, so the CHECK constraints and the domain
+  vocabularies live in the same file as the table definitions.
+- **Cost:** a smaller ecosystem, and migrations that need more attention — the append-only trigger
+  is a hand-written migration because triggers are outside what Drizzle models.
+
+---
+
+## Decision 5 — The report total is computed, never stored
+
+- **Chose:** No `total` column on `expense_reports`. The total is `sum(expense_lines.amount)`,
+  computed in SQL wherever it is needed.
+- **Rejected:** A denormalised `total` column maintained by the service that edits lines.
+- **Why:** Goal 3 says the total is always the sum of the lines and never a value the client can
+  set. With no column to write, that is structurally true rather than a rule someone has to
+  remember. It also removes an entire class of bug — a stored total that drifts from its lines.
+- **What it costs:** every list that sorts or displays totals has to join a grouped subquery, and
+  that is the query most likely to get slow first (see `docs/schema.md`).
+- **Later reversed:** _not yet — see below._
+
+> **On the reversal the brief asks for:** the honest candidate is Decision 5. If sorting by total
+> across a paginated list turns out to be awkward or slow enough to matter, the fix is to
+> denormalise `total` onto `expense_reports` and maintain it in the one service that touches lines.
+> If that happens I will record it here with what actually triggered it, rather than inventing a
+> tidier story.
+
+---
+
+## Decision 6 — Assignment is routing, not permission
+
+- **Chose:** Any approver may decide any submitted report they do not own. Assignment via
+  `report_approvers` drives the "assigned to me" queue and gates who may dismiss a stale alert.
+- **Rejected:** Only assigned approvers may approve or reject.
+- **Why:** Goal 5 says every approver can see the *full* queue of submitted reports awaiting a
+  decision as well as a filtered list of those assigned to them, and goal 10 says an approver can
+  dismiss the alert "for a report assigned to them". Read together, assignment looks like a routing
+  and visibility concept; if it were a permission gate, showing every approver the full queue would
+  be showing them work they cannot do.
+- **This is a judgement call, not a certainty.** The other reading is defensible. It is isolated to
+  one clause in `canTransition`, so it is cheap to change if a reviewer disagrees.

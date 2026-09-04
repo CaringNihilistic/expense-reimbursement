@@ -68,6 +68,22 @@ because the approver owned them.
 **(not built yet)** — `canTransition` and the transactional write land in session 3; bulk in
 session 4. Steps 1–2 are built and verified.
 
+Steps 1–2 are not theoretical. Signing in as a second employee and POSTing another user's
+`updateLine` action directly — the real payload, lifted from their page, replayed with my own
+session cookie — returns 404 and changes nothing. No interface was involved, which is the point.
+
+## Where the money lives
+
+There is no `total` column, so a report's total is `sum(expense_lines.amount)` computed in SQL on
+every read. Two consequences worth stating, because both are load-bearing:
+
+- **Nothing sums money in JavaScript.** The list view gets its totals from a grouped join; the
+  detail view runs one `sum()`. Neither adds anything up in application code.
+- **`numeric` does not always survive the trip out of Postgres as a string.** Drizzle's relational
+  query API round-trips nested rows through JSON, which turns `numeric` into a float, so
+  `getOwnReport()` restores the string at that boundary. See
+  [decisions.md](decisions.md#decision-7--repair-the-money-type-at-the-query-boundary-not-in-the-display-layer).
+
 ## What I decided not to build
 
 Named here so the omissions read as decisions rather than gaps:

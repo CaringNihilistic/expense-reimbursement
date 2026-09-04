@@ -51,9 +51,9 @@ Mark each honestly. Partial is fine — say what is partial.
 
 | # | Goal | Status | Notes |
 |---|------|--------|-------|
-| 1 | Accounts and roles | Partial | Email/password login, employee and approver roles, server-side guards in place and tested against a forged cookie. The approver-specific rules land with the workflow engine. |
-| 2 | Expense reports | Not done | Session 2 |
-| 3 | Expense lines | Not done | Session 2 |
+| 1 | Accounts and roles | Partial | Email/password login, employee and approver roles, server-side guards in place and tested against a forged cookie. Ownership scoping is now verified too: a second account gets 404 both for the page and for a replayed Server Action POST against another user's line. The approver-specific rules land with the workflow engine. |
+| 2 | Expense reports | Done | Create with title and date range, edit while draft, archive and restore. Archived reports leave the default list without losing anything — the archived view still shows them. |
+| 3 | Expense lines | Done | Date, amount, category from the fixed list, description. Add, edit and remove while the report is a draft. The total is `sum(amount)` in SQL on every read — there is no total column for a client to set. |
 | 4 | Report lifecycle with rules | Not done | Session 3 |
 | 5 | Assigned approvers | Not done | Session 3 — table and relationships already in the schema |
 | 6 | Finding reports | Not done | Session 4 |

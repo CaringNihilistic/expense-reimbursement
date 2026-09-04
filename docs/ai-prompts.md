@@ -123,4 +123,67 @@ past the middleware and is still refused by the page.
 
 ---
 
-## _(sessions 2–6 to follow)_
+## Building session 2
+
+### Prompt
+
+> check if the session 1 is completed and then start session 2
+
+### What I got
+
+First an audit rather than an answer. It checked the repository state instead of trusting the tick
+in `plan.md`, and reported session 1 as **not** complete: there was no git remote configured, no
+Vercel or Neon connection string anywhere, and `npm test` reported "no test files found" — the
+`test(db)` commit had added `scripts/verify-constraints.sql`, which is run by hand through `psql`,
+not a Vitest suite. That is a fair correction. The plan's own rule 1 is "deploy on day one" and I
+had not done it.
+
+Then goals 2 and 3: `src/lib/reports.ts` for the reads, `src/app/reports/actions.ts` for the seven
+Server Actions, three pages, and a shared nav.
+
+### What I corrected — **the verification found a bug the types were hiding**
+
+The build passed and the types checked, and none of that was worth anything, because the bug was
+invisible to both. Driving the app in a real browser showed a line amount rendering as `120.5`
+instead of `120.50`.
+
+The cause is written up as Decision 7: Drizzle's relational query API aggregates nested rows into
+JSON inside Postgres, `numeric` becomes a JSON number, and the value comes back a float — while
+TypeScript still says `string`. The `db.select()` path used by the list query is unaffected, which
+is why it showed up in one place and not the other.
+
+What I want on the record is that **`tsc` was green throughout**. A type annotation is a claim
+about runtime, not proof of it.
+
+### What else it got wrong — its own test script, three times
+
+The browser suite it wrote failed repeatedly, and each failure was the harness, not the app:
+
+1. `button:has-text("Save")` matched **"Save changes"** too — `has-text` is a substring match — so
+   the click went to the metadata form instead of the line. Fixed with `:text-is("Save")`.
+2. `text=Flight` never matches a value inside an `<input>`; `text=` matches rendered text, and an
+   input's value is an attribute.
+3. `waitForURL(sameUrl)` resolves instantly when the URL already matches, so assertions ran before
+   the round trip landed. Every one of these actions redirects to the page it is already on.
+
+It also chased two false leads with real conviction — that the session cookie was being dropped,
+and that React 19 could not submit a form from a button associated by the `form` attribute — before
+isolating each with a probe that disproved it. The thing that actually settled the question was
+replaying the Server Action with `curl` and reading the row back out of Postgres: the server had
+been correct the entire time.
+
+**Lesson I took from it:** a failing test is a claim about two things, the app and the test, and it
+is worth asking which one is lying. Roughly two thirds of this session went to verification and its
+false alarms rather than to the feature.
+
+### What I insisted on
+
+Testing the security boundary rather than assuming it. Signed in as a second employee and (a)
+requested another user's report — 404, (b) replayed that user's `updateLine` Server Action payload
+against their line with my own cookie — 404, row unchanged. That second one is the test that
+matters, because it is the attack `docs/architecture.md` says the design defends against, and the
+only way to run it is to bypass the interface entirely.
+
+---
+
+## _(sessions 3–6 to follow)_

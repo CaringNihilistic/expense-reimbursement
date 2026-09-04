@@ -40,8 +40,8 @@ Filled in at the end of each session.
 
 | Session | Estimated | Actual | What slipped |
 |---|---|---|---|
-| 1 · Skeleton, auth, deploy | 2h 00m | _record it_ | Scope complete: repo, six tables, append-only trigger, session auth, seed, local verification. Vercel + Neon deploy still outstanding. |
-| 2 · Reports and lines | 2h 00m | | |
+| 1 · Skeleton, auth, deploy | 2h 00m | _record it_ | Scope complete: repo, six tables, append-only trigger, session auth, seed, local verification. Vercel + Neon deploy still outstanding — so is the push to GitHub, which means rule 1 of this plan ("deploy on day one") has not actually been honoured yet. |
+| 2 · Reports and lines | 2h 00m | _record it_ | Goals 2 and 3 complete and driven end to end in a real browser. Most of the time went to verification rather than to writing the feature, and it earned its keep: it caught a money-precision bug the type system was actively hiding (see Decision 7). |
 | 3 · Workflow engine | 2h 00m | | |
 | 4 · Finding and bulk | 2h 00m | | |
 | 5 · Dashboard and alerts | 2h 00m | | |

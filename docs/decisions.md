@@ -113,3 +113,37 @@ produced them, not reconstructed at the end.
   be showing them work they cannot do.
 - **This is a judgement call, not a certainty.** The other reading is defensible. It is isolated to
   one clause in `canTransition`, so it is cheap to change if a reviewer disagrees.
+
+---
+
+## Decision 7 — Repair the money type at the query boundary, not in the display layer
+
+- **Context:** Decision 5 and the comment on `expense_lines.amount` both promise the same thing —
+  money is a `numeric` that arrives in JavaScript as a **string**, and nothing ever calls
+  `parseFloat` on it. Session 2 proved that promise was quietly false.
+
+  Drizzle's relational query API (`db.query.expenseReports.findFirst({ with: { lines } })`) does not
+  fetch a relation with a second query. It builds one statement that aggregates the nested rows into
+  JSON. Postgres serialises `numeric` into a JSON **number**, and `JSON.parse` on the way back hands
+  you a float. So `"120.50"` arrived as `120.5` — while TypeScript still typed the field as `string`,
+  because Drizzle's `numeric()` column declares string mode and nothing in the type system knows the
+  JSON round trip happened. The plain `db.select()` path used by the list query is unaffected; the
+  driver returns those untouched.
+
+  I found it because a line rendered as `120.5` in an input instead of `120.50`.
+
+- **Chose:** Restore the string at the boundary — `getOwnReport()` maps the returned lines back to
+  `Number(amount).toFixed(2)` — so everything downstream inherits the type the schema advertises.
+- **Rejected:** (a) `toFixed(2)` in the display helper only. That fixes the symptom where I happened
+  to look and leaves every future consumer of the relational API holding a float — the exact trap I
+  just fell into. (b) A custom `numeric` parser on the `postgres` client. This cannot work: by the
+  time the driver sees the bytes they are inside a JSON blob, and the value stopped being a
+  `numeric` while it was still in Postgres. (c) Abandoning the relational API for hand-written
+  joins, which is a large change to buy back something one `map` already buys.
+- **What it costs:** a coercion that has to be remembered at each relational read of a money column.
+  It is a boundary repair, not a fix — the honest description is a patch over a leaky abstraction.
+- **Why it is still safe:** `numeric(12,2)` guarantees the true value has at most two decimals, so
+  formatting a single already-rounded value cannot drift. What would not be safe is *summing* floats
+  in JavaScript, and nothing does: every total is `sum()` in SQL.
+- **The wider lesson:** a type annotation is a claim about runtime, not proof of it. This one was
+  wrong for one query path only, and TypeScript reported no error at any point.

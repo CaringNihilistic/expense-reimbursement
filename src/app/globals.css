@@ -137,3 +137,47 @@ button.secondary {
   padding: 0.1rem 0.45rem;
   color: var(--muted);
 }
+
+.button-link {
+  display: inline-block;
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+th {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+tfoot td {
+  border-bottom: none;
+  border-top: 1px solid var(--border);
+}
+
+td input,
+td select {
+  padding: 0.4rem 0.5rem;
+  font-size: 0.9rem;
+}

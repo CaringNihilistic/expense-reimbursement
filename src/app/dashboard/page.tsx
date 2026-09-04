@@ -1,50 +1,45 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
-import { logout } from "@/app/login/actions";
+import { NavBar } from "@/components/nav-bar";
 import { requireUser } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "Dashboard · Expense Reimbursement" };
 
 /**
- * Session 1 placeholder. Its only job is to prove the whole auth loop works
- * end to end: cookie set, cookie verified, user loaded from Postgres, guard
- * enforced on the server. The real dashboard (goal 8) lands in session 5.
+ * Placeholder landing page. The real dashboard (goal 8 — headline numbers,
+ * status/category breakdowns, the eight-week paid-per-week chart) lands in
+ * session 5, once there is a workflow producing decided and paid reports to
+ * summarise.
  */
 export default async function DashboardPage() {
   const user = await requireUser();
 
   return (
     <main>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "baseline",
-          gap: "1rem",
-          flexWrap: "wrap",
-        }}
-      >
-        <div>
-          <h1>Signed in as {user.name}</h1>
-          <p className="muted" style={{ margin: 0 }}>
-            {user.email} · <span className="pill">{user.role}</span>
-          </p>
-        </div>
-        <form action={logout}>
-          <button type="submit" className="secondary">
-            Sign out
-          </button>
-        </form>
+      <NavBar user={user} />
+
+      <h1>Welcome, {user.name.split(" ")[0]}</h1>
+      <p className="muted" style={{ marginTop: 0 }}>
+        {user.email}
+      </p>
+
+      <div className="card" style={{ marginTop: "1.5rem" }}>
+        <h2>My reports</h2>
+        <p className="muted" style={{ marginTop: 0 }}>
+          Create expense reports, add line items, and archive ones you no longer need in the
+          default view.
+        </p>
+        <Link href="/reports" className="button-link">
+          Go to my reports
+        </Link>
       </div>
 
-      <div className="card" style={{ marginTop: "2rem" }}>
-        <h2>Session 1 complete</h2>
-        <p className="muted" style={{ marginTop: 0 }}>
-          Accounts, roles, the six tables, the append-only trigger and a deployable app. What is
-          still to come:
-        </p>
+      <div className="card" style={{ marginTop: "1.5rem" }}>
+        <h2>Build status</h2>
         <ul className="muted" style={{ marginBottom: 0 }}>
-          <li>Session 2 — expense reports and lines, archive and restore</li>
+          <li>Session 1 — accounts, roles, schema, auth ✓</li>
+          <li>Session 2 — expense reports and lines, archive and restore ✓</li>
           <li>Session 3 — the workflow engine, timeline and assigned approvers</li>
           <li>Session 4 — server-side search, bulk decisions and CSV export</li>
           <li>Session 5 — dashboard metrics and stale-approval alerts</li>

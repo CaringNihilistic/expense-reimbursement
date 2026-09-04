@@ -76,7 +76,11 @@ export default async function ReportsPage({
                     {formatDate(report.periodStart)} – {formatDate(report.periodEnd)}
                   </td>
                   <td>
-                    <span className="pill">{report.status}</span>
+                    {/* No stored `rejected` status — Decision 3. A draft whose
+                        last status change was a rejection reads as returned. */}
+                    <span className="pill">
+                      {report.returnedForChanges ? "returned" : report.status}
+                    </span>
                   </td>
                   <td className="muted">{report.lineCount}</td>
                   <td>{formatAmount(report.total)}</td>

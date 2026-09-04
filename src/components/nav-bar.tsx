@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { logout } from "@/app/login/actions";
+import { isApprover } from "@/lib/auth";
 import type { User } from "@/db/schema";
 
 export function NavBar({ user }: { user: User }) {
@@ -20,6 +21,8 @@ export function NavBar({ user }: { user: User }) {
           Expense Reimbursement
         </Link>
         <Link href="/reports">My reports</Link>
+        {/* Cosmetic only — /approvals is guarded by requireApprover(). */}
+        {isApprover(user) ? <Link href="/approvals">Approvals</Link> : null}
       </nav>
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
         <span className="muted">

@@ -71,7 +71,10 @@ export const users = pgTable(
     email: text("email").notNull(),
     passwordHash: text("password_hash").notNull(),
     name: text("name").notNull(),
-    role: text("role").notNull().default("employee"),
+    // `$type` is the type-level half of the CHECK constraint below. Without
+    // it these columns are plain `string` in TypeScript, and the domain
+    // vocabularies are enforced only at the database. With it the two agree.
+    role: text("role").$type<Role>().notNull().default("employee"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -99,7 +102,7 @@ export const expenseReports = pgTable(
     title: text("title").notNull(),
     periodStart: date("period_start").notNull(),
     periodEnd: date("period_end").notNull(),
-    status: text("status").notNull().default("draft"),
+    status: text("status").$type<Status>().notNull().default("draft"),
 
     submittedAt: timestamp("submitted_at", { withTimezone: true }),
     decidedAt: timestamp("decided_at", { withTimezone: true }),
@@ -139,7 +142,7 @@ export const expenseLines = pgTable(
     // numeric, never a float. Drizzle hands this back as a string on purpose;
     // all arithmetic happens in SQL via sum(). Never parseFloat() money.
     amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
-    category: text("category").notNull(),
+    category: text("category").$type<Category>().notNull(),
     description: text("description").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -197,9 +200,9 @@ export const reportEvents = pgTable(
     actorId: uuid("actor_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
-    kind: text("kind").notNull(),
-    fromStatus: text("from_status"),
-    toStatus: text("to_status"),
+    kind: text("kind").$type<EventKind>().notNull(),
+    fromStatus: text("from_status").$type<Status>(),
+    toStatus: text("to_status").$type<Status>(),
     /** Required when an approver rejects; null otherwise. */
     reason: text("reason"),
     /** The comment body; null on status changes. */

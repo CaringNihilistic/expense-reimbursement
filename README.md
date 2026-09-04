@@ -61,8 +61,10 @@ ranges, and case-insensitive email uniqueness.
 ```
 src/
   app/          routes; Server Components read, Server Actions mutate
+  components/   nav bar, timeline
   db/           schema.ts (six tables) and the pooled client
-  lib/          auth.ts (the security boundary), constants.ts
+  lib/          auth.ts (the security boundary), transitions.ts (the workflow
+                engine, pure + tested), reports.ts (reads), format.ts
   middleware.ts cosmetic redirects only — NOT a security boundary
 drizzle/        SQL migrations, including the append-only trigger
 scripts/        migrate, seed, constraint verification

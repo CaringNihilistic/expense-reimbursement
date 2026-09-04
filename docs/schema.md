@@ -130,6 +130,12 @@ In the database, because they must hold no matter what code runs:
   guard would hold only as long as every future code path remembers to go through it. This holds
   against a bug, a stray script, and anyone at a `psql` prompt.
 
+The three vocabularies are also declared to TypeScript with Drizzle's `$type<…>()`, so `status` is
+`"draft" | "submitted" | "approved" | "paid"` in the editor rather than plain `string`. That is a
+type-level mirror of the CHECK constraint, not a second enforcement point — the database is still
+the thing that holds. It was added in session 3 because `canTransition` switches exhaustively on
+status, and a `string` there means the compiler cannot tell you when a case is missing.
+
 In the application, because they depend on who is asking:
 
 - Who may submit, approve, reject or mark paid — including the rule that an approver may never

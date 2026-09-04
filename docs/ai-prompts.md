@@ -186,4 +186,56 @@ only way to run it is to bypass the interface entirely.
 
 ---
 
-## _(sessions 3–6 to follow)_
+## Building session 3
+
+### Prompt
+
+> start session 3
+
+### What I got
+
+The workflow engine as a pure function first, its test suite second, and only then the interface —
+which is the order the plan asks for and, more to the point, the order that let the hard part be
+proved correct in 5ms instead of through a browser. Then the timeline, the approval queue, assigned
+approvers, and the comment box.
+
+### What I corrected — **two bugs the tests found, both invisible to the type checker**
+
+1. **Rejecting dropped the approver on a 404.** Rejection returns a report to Draft (Decision 3),
+   and a draft is visible only to its owner — so the approver who had just rejected something could
+   no longer see the page the action redirected them to. The fix is to ask `canView` where to send
+   them rather than assuming the report page. Recorded at the end of Decision 8, because it is a
+   small illustration of a large idea: a rule expressed as a function is a rule you can re-ask
+   somewhere else.
+
+2. **The "add a line first" rule hid its own explanation.** I had the interface ask `canTransition`
+   whether to render the Submit button at all, which is right for ownership and status — and wrong
+   for this rule, because the button vanished and took the reason with it. Now ownership and status
+   decide whether the button exists; the line-count rule only decides what the hint next to it says,
+   and the server refuses either way.
+
+Neither would have been caught by reading the code, and neither broke a type.
+
+### What the AI got wrong: its test harness, again
+
+Three more harness failures, none of them the app — a stale closure that waited for the wrong
+report's URL, a sign-out click on a 404 page that has no navigation, and title selectors that
+matched leftovers from previous runs.
+
+That last one was interesting, because the *reason* the leftovers existed is goal 9 working: my
+cleanup ran `delete from report_events`, the append-only trigger refused it, the whole statement
+rolled back, and the reports survived. The test harness was defeated by the immutability the brief
+asked for. I switched to unique per-run titles and kept the trigger.
+
+### What I insisted on
+
+Proving the segregation-of-duties rule against the server rather than the interface. The button is
+hidden on your own report, which proves nothing. So: sign in as Sandeep, lift the real
+`approveReport` payload from Meera's view of that same report, and POST it with Sandeep's cookie.
+Refused, with `canTransition`'s own message, the status unchanged and no timeline row written. The
+same replay as an employee is refused for the other reason. Those two curl commands are the
+evidence for goal 1 that the interface cannot provide.
+
+---
+
+## _(sessions 4–6 to follow)_

@@ -147,3 +147,31 @@ produced them, not reconstructed at the end.
   in JavaScript, and nothing does: every total is `sum()` in SQL.
 - **The wider lesson:** a type annotation is a claim about runtime, not proof of it. This one was
   wrong for one query path only, and TypeScript reported no error at any point.
+
+---
+
+## Decision 8 — Refusals are values, not exceptions
+
+- **Chose:** `canTransition(report, actor, action)` is a pure function returning a discriminated
+  union — `{ ok: true, from, to }` or `{ ok: false, code, message }`. It performs no I/O. Callers
+  load the row, ask, and only then write.
+- **Rejected:** (a) throwing a `ForbiddenError` from inside the Server Action, which is the more
+  usual shape; (b) enforcing the lifecycle in a database trigger.
+- **Why not exceptions:** goal 7 requires a bulk action to report *per report* which ones were
+  refused and why — naming the ones refused because the approver owned them. An exception unwinds
+  the loop it was thrown in; a value can be collected into an array. Bulk approval becomes
+  `ids.map(id => canTransition(...))` with nothing new to invent, which is the whole reason the
+  workflow engine was built in session 3 rather than alongside session 4.
+- **Why not a trigger:** the rules depend on *who is asking*, and a CHECK constraint cannot see the
+  actor. A trigger could, by being handed the actor, but its refusal arrives as a Postgres exception
+  string — the wrong shape for goal 7's typed per-report codes, and untestable without a database.
+- **What purity bought:** 30 tests that run in 5ms with no Postgres, covering every action from
+  every status, both roles, ownership, archiving, and the missing-reason case. This is the part of
+  the brief where being wrong is expensive, and it is the part that is cheapest to prove right.
+- **The cost:** the caller has to remember to ask. Nothing in the type system forces a Server Action
+  to consult `canTransition` before writing — the discipline is convention, enforced by the fact
+  that all four transitions route through one private `transition()` helper.
+- **One thing it caught:** rejection returns a report to draft, and a draft is visible only to its
+  owner, so an approver who rejected something could no longer see the page they had just acted on.
+  The redirect now asks `canView` where to send them. A rule expressed as a function is a rule you
+  can re-ask somewhere else.

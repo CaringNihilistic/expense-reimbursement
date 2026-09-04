@@ -42,7 +42,7 @@ Filled in at the end of each session.
 |---|---|---|---|
 | 1 · Skeleton, auth, deploy | 2h 00m | _record it_ | Scope complete: repo, six tables, append-only trigger, session auth, seed, local verification. Vercel + Neon deploy still outstanding — so is the push to GitHub, which means rule 1 of this plan ("deploy on day one") has not actually been honoured yet. |
 | 2 · Reports and lines | 2h 00m | _record it_ | Goals 2 and 3 complete and driven end to end in a real browser. Most of the time went to verification rather than to writing the feature, and it earned its keep: it caught a money-precision bug the type system was actively hiding (see Decision 7). |
-| 3 · Workflow engine | 2h 00m | | |
+| 3 · Workflow engine | 2h 00m | _record it_ | Goals 4, 5 and 9 complete, plus the first real test suite (30 tests on `canTransition`). Came in closer to estimate than session 2 because the pure function could be proved correct without a browser. Two bugs found by testing rather than reading: an approver landed on a 404 after rejecting, and the "needs a line" rule hid the very button that would have explained it. |
 | 4 · Finding and bulk | 2h 00m | | |
 | 5 · Dashboard and alerts | 2h 00m | | |
 | 6 · Seed, harden, submit | 2h 00m | | |

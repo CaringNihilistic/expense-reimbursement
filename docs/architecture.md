@@ -65,8 +65,31 @@ The bulk endpoint (goal 7) is this same path in a loop: one `canTransition` call
 verdicts collected into an array, so the response can name exactly which reports were refused
 because the approver owned them.
 
-**(not built yet)** — `canTransition` and the transactional write land in session 3; bulk in
-session 4. Steps 1–2 are built and verified.
+All of this is now built except the bulk endpoint, which is session 4. And it is not a description
+of intent: signing in as Sandeep — an approver who also submits — and POSTing the real
+`approveReport` payload for his own report, lifted from another approver's page and replayed with
+his own cookie, returns
+
+```
+303 See Other
+Location: /reports/…?refused=You%20submitted%20this%20report%2C%20so%20it%20needs%20a%20different%20approver.
+```
+
+with the status still `submitted` and zero rows added to `report_events`. The interface never
+rendered that button; the server refused it anyway, which is the only version of the rule that
+counts.
+
+### Where the workflow lives
+
+| Piece | File | Responsibility |
+|---|---|---|
+| The rules | `src/lib/transitions.ts` | `canTransition` — pure, no I/O. Who may do what, from which status. |
+| The writes | `src/app/reports/workflow.ts` | Guard, ask `canTransition`, and on a yes perform two writes in one transaction. |
+| The proof | `src/lib/transitions.test.ts` | 30 tests, including every illegal transition from every status. |
+
+The split exists so that the hard part — the rules — can be tested exhaustively without a database,
+and so that goal 7's bulk action can call the same function in a loop and collect verdicts rather
+than catching exceptions. See [decisions.md](decisions.md#decision-8--refusals-are-values-not-exceptions).
 
 Steps 1–2 are not theoretical. Signing in as a second employee and POSTing another user's
 `updateLine` action directly — the real payload, lifted from their page, replayed with my own

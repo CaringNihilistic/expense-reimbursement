@@ -51,15 +51,15 @@ Mark each honestly. Partial is fine — say what is partial.
 
 | # | Goal | Status | Notes |
 |---|------|--------|-------|
-| 1 | Accounts and roles | Partial | Email/password login, employee and approver roles, server-side guards in place and tested against a forged cookie. Ownership scoping is now verified too: a second account gets 404 both for the page and for a replayed Server Action POST against another user's line. The approver-specific rules land with the workflow engine. |
+| 1 | Accounts and roles | Done | Email/password login, employee and approver roles, guards inside every action rather than in middleware. All three rules are verified by replaying real Server Action payloads with the wrong account's cookie: another employee gets 404 for a report and for a line edit; an employee is refused an approval ("Only an approver can mark a report approved."); and an approver POSTing an approval of **their own** report is refused ("You submitted this report, so it needs a different approver.") with the row unchanged and no timeline event written. |
 | 2 | Expense reports | Done | Create with title and date range, edit while draft, archive and restore. Archived reports leave the default list without losing anything — the archived view still shows them. |
 | 3 | Expense lines | Done | Date, amount, category from the fixed list, description. Add, edit and remove while the report is a draft. The total is `sum(amount)` in SQL on every read — there is no total column for a client to set. |
-| 4 | Report lifecycle with rules | Not done | Session 3 |
-| 5 | Assigned approvers | Not done | Session 3 — table and relationships already in the schema |
+| 4 | Report lifecycle with rules | Done | Draft → Submitted → Approved → Paid, with rejection returning the report to Draft carrying its reason. One pure function, `canTransition`, authorises every change; 30 unit tests cover it, including every illegal transition from every status. Refusals are shown as the message the server produced. |
+| 5 | Assigned approvers | Done | Owners assign any number of approvers to a draft; `/approvals` shows the full queue and an assigned-to-me filter. Assignment is routing, not permission (Decision 6), so the queue lists the viewer's own reports too — which is what goal 7 needs to demonstrate. |
 | 6 | Finding reports | Not done | Session 4 |
 | 7 | Acting on many reports at once | Not done | Session 4 |
 | 8 | Dashboard | Not done | Session 5 |
-| 9 | History you cannot rewrite | Partial | `report_events` exists and is append-only, enforced by a database trigger and verified. The timeline UI lands in session 3. |
+| 9 | History you cannot rewrite | Done | Every status change and comment on one timeline, with old → new status, who made it, and the reason on a rejection. Immutability is the database's job, verified at the `psql` prompt: `DELETE`, `UPDATE` and `TRUNCATE` on `report_events` are each refused by the trigger. |
 | 10 | Stale-approval alerts | Not done | Session 5 — `alert_dismissals` already in the schema |
 
 ## How much time did you actually spend?

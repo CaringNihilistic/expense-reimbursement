@@ -23,7 +23,7 @@ have saved an hour or more.
 
 ### Prompt
 
-> read the files
+> Review all files relevant to the project brief. Summarize the requirements, identify the key acceptance criteria and implementation constraints, and flag any important context or inconsistencies I should be aware of before starting.
 
 ### What I got
 
@@ -43,7 +43,7 @@ Nothing in the summary. I moved the doc stubs into `docs/` as part of the first 
 
 ### Prompt
 
-> first, scrape the web look for the existing type of project or any product available already
+> Research the existing market and open-source landscape for projects or products comparable to this one. Identify relevant commercial products and GitHub/open-source implementations, compare their workflows and capabilities with this brief, and highlight any useful patterns, gaps, or design considerations that should influence this project.
 
 ### What I got
 
@@ -72,8 +72,7 @@ linked sources rather than taking it on trust.
 
 ### Prompt
 
-> first design the architecture on basis of the requirements given to you and then master plan in
-> phases for the execution
+> First, design the system architecture based strictly on the project requirements. Then create a phased execution plan covering the recommended technology stack, core components, data model, key architectural decisions, implementation order, verification strategy, and deliverables for each phase. Call out any assumptions or trade-offs that need to be considered before implementation.
 
 ### What I got
 
@@ -106,7 +105,7 @@ you before accepting advice that hinges on it.
 
 ### Prompt
 
-> do it
+> Proceed with Session 1 according to the agreed project plan. Implement all work assigned to this session, including the required repository structure, database schema, constraints, authentication, seed/setup scripts, and verification. After implementation, run the relevant checks and tests, verify the critical requirements against the actual environment, and report any issues found rather than assuming the implementation is correct.
 
 ### What I got
 
@@ -138,7 +137,7 @@ past the middleware and is still refused by the page.
 
 ### Prompt
 
-> check if the session 1 is completed and then start session 2
+> First audit the repository and project state against every acceptance criterion and deliverable defined for Session 1. Do not rely on plan checkmarks alone; verify the implementation and required environment/configuration directly. If Session 1 is complete, proceed with Session 2 and implement its planned goals. Validate the new functionality with appropriate automated and end-to-end checks, and clearly report any defects, gaps, or corrections required.
 
 ### What I got
 
@@ -201,7 +200,7 @@ only way to run it is to bypass the interface entirely.
 
 ### Prompt
 
-> start session 3
+> Proceed with Session 3 according to the project plan. Implement the workflow/state-transition logic and all functionality assigned to this session, prioritizing the core business rules as testable, reusable logic before building the interface around them. Add comprehensive tests for the workflow and verify the security and authorization boundaries, including cases that cannot be validated reliably through the UI alone. Run the relevant checks and report any issues found.
 
 ### What I got
 
@@ -253,7 +252,7 @@ evidence for goal 1 that the interface cannot provide.
 
 ### Prompt
 
-> Session 4 (goals 6 and 7). do it
+> Proceed with Session 4, covering Goals 6 and 7 from the project brief. Implement the required functionality in a testable, maintainable way, including the relevant data queries, CSV/export behavior, search/filtering, bulk-action behavior, and UI changes. Prioritize pure/testable modules where appropriate, then integrate them into the application. Verify correctness, authorization, partial-success behavior, sorting/filtering, and data-safety requirements with automated and end-to-end tests.
 
 ### What I got
 
@@ -312,7 +311,7 @@ watch it come out neutralised, not just unit-tested in isolation.
 
 ### Prompt
 
-> do it
+> Proceed with Session 5 according to the project plan, covering Goals 8 and 10. Implement the dashboard, time-based aggregation, stale-alert behavior, and related navigation/UI functionality. Ensure the implementation follows the requirements and existing architectural decisions, and prefer designs that remain correct without unnecessary scheduled/background jobs where the requirements can be derived at read time. Add and run appropriate tests, including verification of the actual rendered chart/UI behavior, and report any defects or discrepancies found.
 
 ### What I got
 
@@ -353,9 +352,7 @@ under-report anything that moved twice.
 
 ### Prompt
 
-> do the session 6 and also edit the all the md files in a way that it should look professional,
-> answer all the questions by yourself and what the answer should be ideally as you know enough of
-> this project
+> Complete Session 6 according to the project plan and finish the remaining implementation, integration testing, seed/demo data, and documentation work. Review every Markdown document for consistency, accuracy, completeness, and professional presentation. Where the submission requires answers to project-specific questions, draft evidence-based answers using the project record and implementation; do not invent personal experience or measurements that cannot be established from the available evidence. Run the full relevant verification suite and correct any inconsistencies discovered.
 
 ### What I got
 
@@ -404,7 +401,7 @@ submission that pretends otherwise is exactly the kind a reviewer is right to pr
 
 ### Prompt
 
-> do a fully testing of this project
+> Perform a comprehensive final validation of the entire project against all ten goals and the documented acceptance criteria. Test the application at multiple levels: automated unit/integration tests, database constraints, input validation and edge cases, authorization/security boundaries, direct API/Server Action requests, and browser-level regression flows. Actively try to break the system with malformed and adversarial inputs, and distinguish genuine application defects from failures in the test harness or environment. For every issue, reproduce it, identify the root cause, and verify the fix. Do not consider the project fully validated based only on successful builds or type checks.
 
 ### What I got
 

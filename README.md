@@ -108,8 +108,11 @@ Four things worth knowing, all learned the hard way:
   what woke the compute. Retry once.
 - **`channel_binding=require`** in Neon's connection string is fine with `postgres.js`. It was worth
   checking rather than assuming, since it is a libpq parameter.
-- **Vercel functions default to `iad1`** (us-east-1) while this database is in `us-east-2`. Setting
-  the function region to `cle1` (Cleveland, us-east-2) in Settings → Functions co-locates them.
+- **Vercel functions default to `iad1`** (us-east-1) while this database is in `us-east-2`, so the
+  function region is set to `cle1` (Cleveland, us-east-2) to co-locate them — confirmed by the
+  second field of the `x-vercel-id` response header. It matters because rendering is query-heavy:
+  the report detail page runs five separate queries, and cross-region each one pays the round trip
+  again. With them co-located that five-query page costs no more than the one-query list page.
 - **The obvious hostname was taken.** `expense-reimbursement.vercel.app` already belongs to an
   unrelated app, so Vercel assigned a suffixed name. Check what you actually deployed to before
   pointing anyone at a URL.

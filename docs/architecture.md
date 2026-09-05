@@ -1,7 +1,16 @@
 # Architecture
 
-> Written incrementally. Sections are filled in as the pieces they describe get built; anything
-> not yet true is marked **(not built yet)** rather than described in advance.
+Written incrementally as each piece was built, so nothing here describes an intention — everything
+below is true of the deployed application. Where something was verified rather than assumed, the
+evidence is included.
+
+**Contents:** [the moving pieces](#the-moving-pieces-and-where-each-runs) ·
+[why the guard is not in the middleware](#why-the-guard-is-not-in-the-middleware) ·
+[the request path](#the-request-path-end-to-end) · [where the workflow lives](#where-the-workflow-lives) ·
+[the one route that is not a page or an action](#the-one-route-that-is-not-a-page-or-an-action) ·
+[where the money lives](#where-the-money-lives) ·
+[two reads that go to the timeline](#two-reads-that-deliberately-go-to-the-timeline) ·
+[what I decided not to build](#what-i-decided-not-to-build)
 
 ## The moving pieces, and where each runs
 
@@ -74,8 +83,7 @@ a thing a Server Component can be. It calls `requireApprover()` like everything 
 route handler is a public HTTP endpoint and this one is the entire reimbursement ledger — an
 employee requesting it gets a 307 to `/dashboard` and zero bytes.
 
-All of this is now built except the bulk endpoint, which is session 4. And it is not a description
-of intent: signing in as Sandeep — an approver who also submits — and POSTing the real
+None of that is a description of intent. Signing in as Sandeep — an approver who also submits — and POSTing the real
 `approveReport` payload for his own report, lifted from another approver's page and replayed with
 his own cookie, returns
 

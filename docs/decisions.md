@@ -1,7 +1,27 @@
 # Decisions
 
-Decisions where a real alternative existed and I picked one. Written at the end of the session that
-produced them, not reconstructed at the end.
+Decisions where a real alternative existed and I picked one, written at the end of the session that
+produced them rather than reconstructed afterwards. Each records what was chosen, what was rejected,
+why, and what it cost.
+
+| # | Decision | Session |
+|---|---|---|
+| 1 | [Next.js full-stack over a split API and SPA](#decision-1--nextjs-full-stack-over-a-split-api-and-spa) | 1 |
+| 2 | [Hand-rolled session auth, and the guard is not in the middleware](#decision-2--hand-rolled-session-auth-and-the-guard-is-not-in-the-middleware) | 1 |
+| 3 | [There is no `rejected` status](#decision-3--there-is-no-rejected-status) | 1 |
+| 4 | [Drizzle over Prisma](#decision-4--drizzle-over-prisma) | 1 |
+| 5 | [The report total is computed, never stored](#decision-5--the-report-total-is-computed-never-stored) | 1 |
+| 6 | [Assignment is routing, not permission](#decision-6--assignment-is-routing-not-permission) | 1 |
+| 7 | [Repair the money type at the query boundary](#decision-7--repair-the-money-type-at-the-query-boundary-not-in-the-display-layer) | 2 |
+| 8 | [Refusals are values, not exceptions](#decision-8--refusals-are-values-not-exceptions) | 3 |
+| 9 | [The bulk result travels in the URL](#decision-9--the-bulk-result-travels-in-the-url-and-the-page-looks-nothing-up) | 4 |
+| 10 | [**Reversed:** `/reports` stopped being "my reports"](#decision-10--reversed-reports-stopped-being-my-reports) | 4 |
+| 11 | [The stale alert has no scheduled job](#decision-11--the-stale-alert-has-no-scheduled-job-and-no-dismissed-flag) | 5 |
+| 12 | [Dashboard counts come from the timeline](#decision-12--dashboard-this-week-counts-come-from-the-timeline-not-the-row) | 5 |
+
+**The reversal the brief asks for is Decision 10.** Decision 7 is the other candidate a reviewer
+might reasonably ask about: it is not a reversed choice but a corrected *belief* — an invariant this
+codebase claimed and did not actually hold.
 
 ---
 

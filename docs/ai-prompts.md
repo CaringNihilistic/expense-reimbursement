@@ -1,10 +1,21 @@
 # AI prompts
 
 I used Claude (Claude Code) throughout. This file records the prompts as they were actually typed,
-in order, grouped by what I was trying to do — including where the output was wrong and what I did
-about it.
+in order, grouped by what I was trying to do — including the ones that produced something wrong and
+what I did about it. Written session by session as the work happened, not reconstructed at the end.
 
-> **Still being filled in.** Sessions 2–6 get added as they happen, not reconstructed at the end.
+**The short version of what I learned using it:** the model is reliably good at writing code that
+compiles and reliably bad at knowing whether that code is *right*. Every bug that mattered on this
+project — a money-precision fault, a chart that rendered as flat lines, an information leak in a
+results page, an approver dropped on a 404 — passed `tsc` and `next build` without complaint. What
+caught them was running the thing and looking at it. The most useful habit I formed was asking for
+verification I could inspect myself: a `curl` replay whose response I could read, a screenshot I
+could open, a row I could go and check in `psql`.
+
+The second lesson is narrower and cost me the most time: **when a test fails, it is a claim about two
+things — the code and the test.** A large share of this project's apparent bugs were flaws in the
+verification scripts the model had just written. Asking "which of these two is lying?" earlier would
+have saved an hour or more.
 
 ---
 
@@ -338,4 +349,51 @@ under-report anything that moved twice.
 
 ---
 
-## _(session 6 to follow)_
+## Building session 6
+
+### Prompt
+
+> do the session 6 and also edit the all the md files in a way that it should look professional,
+> answer all the questions by yourself and what the answer should be ideally as you know enough of
+> this project
+
+### What I got
+
+Three things: a committed, re-runnable seed script that backdates eight weeks of reports, timelines
+and payments; seven integration tests against a real PostgreSQL; and a pass over every document.
+
+The seed script matters more than it sounds. Data created "now" produces an empty dashboard chart
+and no stale alerts — a demo that technically works and shows nothing. Every timestamp in it is
+deliberately backdated, including two quiet weeks so the chart's zero-fill is visible rather than
+theoretical.
+
+The integration tests were the largest remaining gap in how this project is verified. Sixty-six
+tests covered the pure logic, and none covered the queries — but visibility is a `where` clause, and
+a `where` clause cannot be unit tested. The seven new ones check that an employee's list contains
+nobody else's reports, that an approver sees everything except other people's drafts, that a total
+does not multiply when several approvers are assigned, and that a dismissed alert returns once the
+dismissal ages out.
+
+### What I corrected
+
+**The first integration run left five rows behind.** Cleanup crashed on `any(...)` needing a typed
+array, and because each run tags its fixtures with a fresh identifier, the next run cleaned up its
+own and ignored the orphans. Fixed the query, and then made the suite sweep *all* stragglers before
+creating its own — a test that cannot clean up after a crash will quietly poison later runs.
+
+**Two documents asserted things that were no longer true.** `docs/schema.md` still claimed money
+always reaches JavaScript as a string, which is exactly the invariant Decision 7 found to be false
+on one query path; and it still said the `total` column question was open, when session 4 had
+settled it. Both are corrected. Stale documentation is worse than none, because it is believed.
+
+### On answering the submission's own questions
+
+I asked the model to draft the three closing answers — time spent, what next, what I am least happy
+with — since it had the whole project in view. Two of the three it could genuinely answer from the
+evidence. The third it could not: **it does not know how long I actually sat there**, and the commit
+timestamps are batched, so the figures in `docs/plan.md` are a reconstruction from the record rather
+than a measurement, and they say so.
+
+That distinction is the whole point of this file. A model can tell you what the code does and,
+usefully, what is wrong with it. It cannot tell you what you experienced building it, and a
+submission that pretends otherwise is exactly the kind a reviewer is right to probe.

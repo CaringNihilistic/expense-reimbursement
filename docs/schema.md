@@ -48,8 +48,16 @@ No `total` column — see "Denormalisation" below. No `rejected` status — see
 | `description` | `text` not null | |
 | `created_at` | `timestamptz` not null | |
 
-`numeric`, never `float8`. Drizzle returns it as a JavaScript **string** on purpose; all arithmetic
-happens in SQL via `sum()`. Nothing in the application calls `parseFloat` on money.
+`numeric`, never `float8`, and every sum is computed in SQL — nothing in the application adds money
+up in JavaScript.
+
+**With one caveat, found the hard way.** The intent is that money reaches JavaScript as a *string*,
+and on the plain `db.select()` path it does. It does not on Drizzle's relational query path
+(`with: { lines }`), which aggregates nested rows into JSON inside Postgres — and `numeric`
+serialises into a JSON *number*, so `"120.50"` arrives as `120.5` while TypeScript still reports
+`string`. `getVisibleReport()` restores the string at that boundary. See
+[decisions.md](decisions.md#decision-7--repair-the-money-type-at-the-query-boundary-not-in-the-display-layer),
+which also explains why storing integer minor units would be the better answer.
 
 ### `report_approvers`
 
@@ -133,8 +141,8 @@ In the database, because they must hold no matter what code runs:
 The three vocabularies are also declared to TypeScript with Drizzle's `$type<…>()`, so `status` is
 `"draft" | "submitted" | "approved" | "paid"` in the editor rather than plain `string`. That is a
 type-level mirror of the CHECK constraint, not a second enforcement point — the database is still
-the thing that holds. It was added in session 3 because `canTransition` switches exhaustively on
-status, and a `string` there means the compiler cannot tell you when a case is missing.
+the thing that holds. It exists because `canTransition` switches exhaustively on status, and a
+plain `string` there means the compiler cannot tell you when a case is missing.
 
 In the application, because they depend on who is asking:
 
@@ -151,17 +159,18 @@ rolls back. All ten pass.
 
 ## What I deliberately denormalised
 
-**Nothing, yet — and that is the deliberate part.** The obvious candidate is a `total` column on
-`expense_reports`. I left it out so that goal 3's "never a value the client can set" is structurally
-true rather than merely enforced (see
+**Nothing — and it stayed that way, which was not a foregone conclusion.** The obvious candidate is
+a `total` column on `expense_reports`. It was left out so that goal 3's "never a value the client can
+set" is structurally true rather than merely enforced (see
 [decisions.md](decisions.md#decision-5--the-report-total-is-computed-never-stored)).
 
-The cost is real: sorting a paginated list by total requires joining a grouped subquery over
-`expense_lines` on every page load. If that becomes the thing that hurts, the fix is a `total`
-column maintained by the one service that edits lines — and I will record it as a reversal rather
-than pretend it was the plan.
+The cost is real: every list that sorts or displays a total runs a correlated `sum()` subquery per
+row. Goal 6's sort-by-total was expected to be the pressure that forced a denormalisation, and it
+was not — at this data volume the query is instant, and denormalising would have been optimising
+against a number nobody had measured. The condition that *would* trigger it is recorded in the
+Decision 5 postscript, so the judgement can be re-made later on evidence rather than taste.
 
-## What goal 6 actually built, and what it confirmed
+## The search query, and what building it confirmed
 
 The search query is one statement: a correlated `sum()` subquery for the total, `count(*) over ()`
 for the match count, `EXISTS` for the approver filter, `ILIKE` for the title search, and
@@ -178,15 +187,15 @@ Sorting by status orders by position in the lifecycle rather than alphabetically
 
 ## What would break first at 100× the data
 
-This section was written in session 1 as a prediction. Session 4 built the query it predicts about,
-so the honest status of each item is now recorded alongside it. At roughly 100,000 reports and a
-million lines, in the order I expect it:
+Written as a prediction before the query existed; the query has since been built, so the honest
+status of each item is recorded alongside it. At roughly 100,000 reports and a million lines, in the
+order I expect them to bite:
 
 1. **Sorting by total.** Every other sort is a plain indexed column. Sorting by an aggregate means
    grouping every line belonging to every report that matches the filters before the first page can
    be returned — the work does not shrink because the page is small. This is the first thing to
    break, and the denormalised `total` column above is the fix.
-   *Status after session 4: built, and not yet a problem.* At 33 reports it is instant, so the
+   *Built, and not yet a problem.* At 33 reports it is instant, so the
    `total` column stays unbuilt — see the Decision 5 postscript in `decisions.md` for what would
    actually trigger it. The title search is `ILIKE '%…%'`, which cannot use a b-tree index either;
    at this size a `pg_trgm` GIN index would cost more than the sequential scan it replaced, and it

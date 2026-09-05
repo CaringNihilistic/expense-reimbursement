@@ -297,4 +297,45 @@ watch it come out neutralised, not just unit-tested in isolation.
 
 ---
 
-## _(sessions 5–6 to follow)_
+## Building session 5
+
+### Prompt
+
+> do it
+
+### What I got
+
+Goals 8 and 10, which completes all ten. Week bucketing came first as a pure module with its own
+tests, then the dashboard queries, the alerts area, and the navigation badge.
+
+### What I corrected — **a bug only the screenshot could find**
+
+The eight-week chart passed every assertion I had written: eight buckets, correct labels, correct
+totals, empty weeks marked. Then I looked at the picture and the bars were flat 2px lines.
+
+The cause is ordinary CSS: a percentage height resolves against the parent's height, and the
+wrapper had none, so every bar collapsed to its minimum. Nothing about it was detectable from the
+DOM contents — the numbers were all right, only the drawing was wrong.
+
+The test now measures `getBoundingClientRect().height` and asserts the bars are actually
+proportional. **Counting elements is not the same as checking a chart renders**, and I would not
+have known without opening the image.
+
+### What I insisted on
+
+Not using a scheduled job for goal 10. "The alert returns after N days" reads like something a cron
+job does, and a flag plus a nightly sweep is the obvious build. It is also the fragile one: if the
+job does not run, alerts stay silent and the exact failure the feature exists to prevent happens
+invisibly. Deriving the alert from two timestamps at read time means it cannot get stuck.
+
+I proved that rather than asserting it: the dismissal row was aged past the snooze window directly
+in Postgres, and the alert came back on the next page load with nothing scheduled and nothing
+restarted. That is Decision 11.
+
+Decision 12 is the same instinct applied to the dashboard: "approved this week" counts timeline
+events, not `decided_at`, because a row remembers only its most recent transition and would quietly
+under-report anything that moved twice.
+
+---
+
+## _(session 6 to follow)_

@@ -227,3 +227,42 @@ produced them, not reconstructed at the end.
   covered by a test that an employee's list contains nothing but their own reports.
 - **What I would do differently:** read goal 6 properly before building goal 2's list. The
   information needed to get this right on the first attempt was in the brief the whole time.
+
+---
+
+## Decision 11 — The stale alert has no scheduled job, and no "dismissed" flag
+
+- **Chose:** a dismissal is an *append-only row* in `alert_dismissals` carrying a timestamp. Whether
+  an alert is showing is computed at read time: submitted for longer than `STALE_AFTER_DAYS`, and no
+  dismissal by this viewer inside the last `ALERT_SNOOZE_DAYS`.
+- **Rejected:** a `dismissed_until` column on `expense_reports`, cleared by a nightly job — the
+  design most people reach for, and the one the word "returns" in goal 10 seems to invite.
+- **Why:** goal 10 says the alert comes back if the report is still undecided N days later. With a
+  flag, something has to *un-set* it, which means a scheduler, which means a new failure mode: if
+  the job does not run, alerts stay silent and the thing the feature exists to prevent — a report
+  quietly rotting in Submitted — happens anyway, invisibly. Deriving the state from two timestamps
+  means the alert cannot get stuck, because nothing has to remember to bring it back. It returns
+  because the clock moved.
+- **How I know it works:** the dismissal row was aged past the snooze window directly in the
+  database and the alert reappeared on the very next page load, with nothing scheduled and nothing
+  restarted.
+- **What it costs:** `alert_dismissals` grows forever, one row per dismissal. At this scale that is
+  nothing; if it mattered, old rows are trivially prunable precisely because they are only read
+  through a recency window.
+- **Also:** dismissals are per approver rather than global. The queue is shared, and one approver
+  deciding they have seen something should not blind everyone else to it.
+
+---
+
+## Decision 12 — Dashboard "this week" counts come from the timeline, not the row
+
+- **Chose:** count `report_events` rows with `to_status = 'approved'` (or `'paid'`) since Monday.
+- **Rejected:** counting `expense_reports` by `decided_at >= monday` / `paid_at >= monday`, which is
+  one table and no join.
+- **Why:** the row remembers only its *most recent* transition. A report approved last week and paid
+  this week still carries last week's `decided_at`, so "approved this week" would silently omit it —
+  and a report can move twice in a week, which the row cannot represent at all. The timeline records
+  every transition and cannot be rewritten (goal 9), which makes it the only honest source for a
+  question about *when things happened* rather than *what state things are in*.
+- **What it costs:** a join, and a dependency on every transition writing its event — which is
+  already guaranteed, because the status change and its timeline row commit in one transaction.

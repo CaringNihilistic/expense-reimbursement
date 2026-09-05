@@ -116,6 +116,21 @@ every read. Two consequences worth stating, because both are load-bearing:
   `getOwnReport()` restores the string at that boundary. See
   [decisions.md](decisions.md#decision-7--repair-the-money-type-at-the-query-boundary-not-in-the-display-layer).
 
+## Two reads that deliberately go to the timeline
+
+`report_events` is append-only, which makes it the only table that can answer questions about *when
+something happened* rather than *what state something is in*. Two features rely on that:
+
+- **The dashboard's "approved this week" and "paid this week"** count events, not rows. A row
+  remembers only its latest transition, so a report approved last week and paid this week carries
+  last week's `decided_at` and would be missed (Decision 12).
+- **"Returned for changes"** is derived from the most recent status change being `submitted → draft`,
+  because there is no stored `rejected` status (Decision 3).
+
+Goal 10's alerts are the mirror image: they hold *no* state at all. There is no `dismissed` flag and
+no job to clear one — an alert is showing when the report has been submitted too long and this
+viewer has not dismissed it recently, evaluated fresh on every read (Decision 11).
+
 ## What I decided not to build
 
 Named here so the omissions read as decisions rather than gaps:

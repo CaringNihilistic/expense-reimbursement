@@ -44,7 +44,7 @@ Filled in at the end of each session.
 | 2 · Reports and lines | 2h 00m | _record it_ | Goals 2 and 3 complete and driven end to end in a real browser. Most of the time went to verification rather than to writing the feature, and it earned its keep: it caught a money-precision bug the type system was actively hiding (see Decision 7). |
 | 3 · Workflow engine | 2h 00m | _record it_ | Goals 4, 5 and 9 complete, plus the first real test suite (30 tests on `canTransition`). Came in closer to estimate than session 2 because the pure function could be proved correct without a browser. Two bugs found by testing rather than reading: an approver landed on a 404 after rejecting, and the "needs a line" rule hid the very button that would have explained it. |
 | 4 · Finding and bulk | 2h 00m | _record it_ | Goals 6 and 7. The cheapest session so far, because session 3 had already paid for it: bulk approval is `canTransition` in a loop, exactly as Decision 8 predicted. Time went instead to two things that were not obviously coming — the bulk result could not be re-queried without leaking (Decision 9), and goal 6 forced `/reports` to stop being the owner's list (Decision 10, the reversal). |
-| 5 · Dashboard and alerts | 2h 00m | | |
+| 5 · Dashboard and alerts | 2h 00m | _record it_ | Goals 8 and 10, so all ten are now met. The eight-week chart shipped as bars rather than falling back to the table in the cut list, because there was time. One bug that only a screenshot could catch: the bars rendered as flat 2px lines, since a percentage height had no definite parent height to resolve against. Counts, labels and values were all correct — the picture was wrong. |
 | 6 · Seed, harden, submit | 2h 00m | | |
 
 ## What gets cut if time runs short

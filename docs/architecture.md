@@ -63,7 +63,16 @@ neither — a status change that is not on the timeline would make goal 9 a lie.
 
 The bulk endpoint (goal 7) is this same path in a loop: one `canTransition` call per selected id,
 verdicts collected into an array, so the response can name exactly which reports were refused
-because the approver owned them.
+because the approver owned them. Each report gets its own transaction — one refusal must not roll
+back the decisions that legitimately succeeded.
+
+### The one route that is not a page or an action
+
+`GET /exports/reimbursements-due` is a Route Handler, the single exception to "Server Components
+read, Server Actions mutate". It returns a CSV with its own content type and filename, which is not
+a thing a Server Component can be. It calls `requireApprover()` like everything else, because a
+route handler is a public HTTP endpoint and this one is the entire reimbursement ledger — an
+employee requesting it gets a 307 to `/dashboard` and zero bytes.
 
 All of this is now built except the bulk endpoint, which is session 4. And it is not a description
 of intent: signing in as Sandeep — an approver who also submits — and POSTing the real

@@ -93,11 +93,18 @@ produced them, not reconstructed at the end.
   that is the query most likely to get slow first (see `docs/schema.md`).
 - **Later reversed:** _not yet — see below._
 
-> **On the reversal the brief asks for:** the honest candidate is Decision 5. If sorting by total
-> across a paginated list turns out to be awkward or slow enough to matter, the fix is to
-> denormalise `total` onto `expense_reports` and maintain it in the one service that touches lines.
-> If that happens I will record it here with what actually triggered it, rather than inventing a
-> tidier story.
+> **Session 4 update — this did *not* get reversed, and I am not going to pretend otherwise.**
+> Goal 6's sort-by-total is now built, which is the exact pressure I expected to force a `total`
+> column. It did not. Sorting by a correlated `sum()` subquery across 33 reports is instant, and
+> `count(*) over ()` gives the match total in the same round trip. The cost schema.md predicts is
+> real but arrives at a data volume this project does not have, and denormalising now would be
+> optimising against a number I have not measured.
+>
+> What would actually trigger it: the sort-by-total page taking long enough to notice — call it
+> 200ms of database time — at which point the fix is a `total` column maintained by the one service
+> that edits lines. The reversal the brief asks for turned out to be [Decision
+> 10](#decision-10--reversed-reports-stopped-being-my-reports) instead, which is a better example
+> because it was forced by a requirement rather than by taste.
 
 ---
 
@@ -175,3 +182,48 @@ produced them, not reconstructed at the end.
   owner, so an approver who rejected something could no longer see the page they had just acted on.
   The redirect now asks `canView` where to send them. A rule expressed as a function is a rule you
   can re-ask somewhere else.
+
+---
+
+## Decision 9 — The bulk result travels in the URL, and the page looks nothing up
+
+- **Chose:** a bulk action redirects to `/approvals?result=<base64url JSON>`, and the results panel
+  renders *only* what that parameter contains. It performs no database query at all.
+- **Rejected:** redirect with a list of report ids and re-query them for their titles. This is the
+  obvious design and it is the one I started with.
+- **Why I abandoned it:** a bulk *rejection* returns those reports to draft, and a draft is visible
+  only to its owner — so by the time the page renders, the approver can no longer read the rows they
+  just acted on. Making the results panel work would have meant querying report titles by id while
+  bypassing `canView`, on a page whose input is the query string. That is an information leak with
+  extra steps: anyone could hand it an id and be told the title of a report they cannot see.
+- **Why the URL is safe:** the panel is pure display of its own input, so forging one only fools the
+  forger. React escapes the text, `zod` rejects anything that is not the expected shape, and the
+  selection is capped at 25 so the parameter cannot grow without bound.
+- **What it costs:** the result is a snapshot, not live. Reload after acting on something else and
+  the old panel is still there until dismissed. For a transient confirmation that is the right
+  trade; for anything durable it would not be.
+- **Also rejected:** `useActionState`, which is the idiomatic React answer and would have returned
+  the result directly. It requires a client component, and this application has none — every page is
+  a Server Component and every mutation a Server Action. One `"use client"` to render a confirmation
+  panel is a poor trade for a boundary that is currently absolute and easy to reason about.
+
+---
+
+## Decision 10 — Reversed: `/reports` stopped being "my reports"
+
+- **Originally chose (session 2):** `/reports` is the owner's own list — every report you own, with
+  an archived toggle. The navigation called it "My reports" and `listOwnReports()` filtered by
+  `owner_id = you` in SQL.
+- **Reversed to (session 4):** `/reports` is *the* list, spanning every employee the viewer is
+  allowed to see, with owner reduced to one filter among search, status, approver, sort and page.
+- **What forced it:** goal 6 asks for "one list [that] shows expense reports across every employee
+  the viewer can see". That is not a filter added to an owner-scoped page; it is a different page
+  with a different visibility rule. Keeping both would have meant two lists differing only in a
+  `where` clause, and a reviewer reasonably asking which one is authoritative.
+- **What it cost:** `listOwnReports()` was deleted rather than extended, the navigation label
+  changed, and ownership scoping moved from being *structural* — you could only ever query your own
+  rows — to being one condition inside a larger query. That is a genuine loss of safety, and it is
+  why the visibility clause in `searchReports()` is written to mirror `canView()` exactly and is
+  covered by a test that an employee's list contains nothing but their own reports.
+- **What I would do differently:** read goal 6 properly before building goal 2's list. The
+  information needed to get this right on the first attempt was in the brief the whole time.

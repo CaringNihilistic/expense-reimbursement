@@ -44,7 +44,7 @@ Three reports are already there, each showing something different:
 | Report | State | Why it is there |
 |---|---|---|
 | **Bengaluru client visit** (Ayush) | Paid | The full lifecycle on one timeline: submitted, rejected with a reason, resubmitted, approved, paid, commented. Sign in as `ayush@` or `meera@` to read it. |
-| **Office supplies restock** (Neha) | Awaiting a decision | Gives the approver queue something real. Sign in as `meera@` → Approvals. |
+| **Office supplies restock** (Neha) | Approved, awaiting payment | The reimbursement currently owed. Sign in as `meera@` → Approvals → **Export reimbursements due (CSV)**; this is the row in that file. Mark it paid and the file empties. |
 | **Team offsite dinners** (Sandeep) | Awaiting a decision | The segregation-of-duties demo. Sign in as `sandeep@` — the report is in his queue, flagged `yours`, and has **no Approve button**. |
 
 The missing button proves nothing on its own, so it was tested against the server instead: replaying

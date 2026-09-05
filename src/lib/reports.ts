@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull, isNotNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, isNotNull, sql, type SQL } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -13,17 +13,6 @@ import {
   type User,
 } from "@/db/schema";
 
-export type ReportSummary = ExpenseReport & {
-  total: string;
-  lineCount: number;
-  /**
-   * A draft whose most recent status change was a rejection. There is no
-   * stored `rejected` status (Decision 3), so "Returned for changes" is
-   * derived from the timeline rather than read off the row.
-   */
-  returnedForChanges: boolean;
-};
-
 export type ReportWithLines = ExpenseReport & {
   total: string;
   lines: ExpenseLine[];
@@ -37,6 +26,43 @@ export type QueueRow = ExpenseReport & {
 };
 
 export type TimelineEvent = ReportEvent & { actorName: string };
+
+export type SearchRow = ExpenseReport & {
+  total: string;
+  ownerName: string;
+  returnedForChanges: boolean;
+};
+
+/**
+ * `returned` is not a stored status (Decision 3) — it is a draft whose last
+ * status change was a rejection. It is offered as a filter anyway, because
+ * "show me what came back to me" is a question people actually ask.
+ */
+export const STATUS_FILTERS = ["draft", "returned", "submitted", "approved", "paid"] as const;
+export type StatusFilter = (typeof STATUS_FILTERS)[number];
+
+export const SORT_FIELDS = ["submitted", "status", "total"] as const;
+export type SortField = (typeof SORT_FIELDS)[number];
+
+export type SearchFilters = {
+  q?: string;
+  status?: StatusFilter;
+  ownerId?: string;
+  approverId?: string;
+  archived: boolean;
+  sort: SortField;
+  dir: "asc" | "desc";
+  page: number;
+  perPage: number;
+};
+
+export type SearchResult = {
+  rows: SearchRow[];
+  matchCount: number;
+  page: number;
+  perPage: number;
+  pageCount: number;
+};
 
 /** Scalar subquery for a report's total. Avoids fanning out over a join. */
 const totalOf = (reportId = expenseReports.id) =>
@@ -67,27 +93,125 @@ export function isEditable(report: Pick<ExpenseReport, "status" | "archivedAt">)
   return report.status === "draft" && report.archivedAt === null;
 }
 
-export async function listOwnReports(
-  ownerId: string,
-  { archived }: { archived: boolean },
-): Promise<ReportSummary[]> {
+/**
+ * Goal 6. One list across every employee the viewer is allowed to see, with
+ * search, filters, sorting and pagination — all of it in SQL. Nothing here
+ * loads a set and narrows it in JavaScript.
+ *
+ * Two deliberate choices worth knowing:
+ *
+ * The total is a correlated subquery rather than a join to a grouped set.
+ * Joining `expense_lines` *and* `report_approvers` in one statement fans the
+ * rows out and multiplies `sum(amount)` by the number of assigned approvers —
+ * a wrong number that looks plausible. Subqueries cannot fan out.
+ *
+ * The match count is `count(*) over ()`, so the page of rows and the total
+ * number of matches arrive in a single round trip instead of two queries that
+ * can disagree with each other under concurrent writes.
+ *
+ * This is the query docs/schema.md predicts will break first at 100x, and
+ * sorting by total is the reason. See that file.
+ */
+export async function searchReports(
+  viewer: Pick<User, "id" | "role">,
+  filters: SearchFilters,
+): Promise<SearchResult> {
+  const conditions: (SQL | undefined)[] = [
+    // The same visibility rule as canView(), expressed in SQL: your own
+    // reports always, plus everyone else's once they have left draft.
+    viewer.role === "approver"
+      ? sql`(${expenseReports.ownerId} = ${viewer.id} or ${expenseReports.status} <> 'draft')`
+      : eq(expenseReports.ownerId, viewer.id),
+    filters.archived ? isNotNull(expenseReports.archivedAt) : isNull(expenseReports.archivedAt),
+  ];
+
+  if (filters.q) {
+    // Case-insensitive contains. At 100x this wants a trigram index; at this
+    // size an index would be slower than the sequential scan it replaces.
+    conditions.push(sql`${expenseReports.title} ilike ${`%${filters.q}%`}`);
+  }
+  if (filters.ownerId) conditions.push(eq(expenseReports.ownerId, filters.ownerId));
+  if (filters.approverId) {
+    conditions.push(sql`exists (
+      select 1 from ${reportApprovers} ra
+      where ra.report_id = ${expenseReports.id} and ra.user_id = ${filters.approverId}
+    )`);
+  }
+  if (filters.status === "returned") {
+    conditions.push(eq(expenseReports.status, "draft"));
+    conditions.push(returnedForChanges);
+  } else if (filters.status) {
+    conditions.push(eq(expenseReports.status, filters.status));
+  }
+
+  const direction = filters.dir === "asc" ? sql`asc` : sql`desc`;
+  const orderBy: Record<SortField, SQL> = {
+    // Drafts have no submitted date; keep them out of the way rather than
+    // letting NULL sort to whichever end Postgres prefers.
+    submitted: sql`${expenseReports.submittedAt} ${direction} nulls last`,
+    // Alphabetical order of the status words is meaningless. Order by
+    // position in the lifecycle instead, which is what "sort by status" means.
+    status: sql`case ${expenseReports.status}
+      when 'draft' then 0 when 'submitted' then 1 when 'approved' then 2 else 3 end ${direction}`,
+    total: sql`${totalOf()} ${direction}`,
+  };
+
+  const offset = (filters.page - 1) * filters.perPage;
+
   const rows = await db
     .select({
       report: expenseReports,
-      total: sql<string>`coalesce(sum(${expenseLines.amount}), 0)`,
-      lineCount: sql<number>`count(${expenseLines.id})::int`,
+      total: totalOf(),
+      ownerName: users.name,
       returnedForChanges,
+      matchCount: sql<number>`count(*) over ()::int`,
     })
     .from(expenseReports)
-    .leftJoin(expenseLines, eq(expenseLines.reportId, expenseReports.id))
-    .where(
-      and(
-        eq(expenseReports.ownerId, ownerId),
-        archived ? isNotNull(expenseReports.archivedAt) : isNull(expenseReports.archivedAt),
-      ),
-    )
-    .groupBy(expenseReports.id)
-    .orderBy(desc(expenseReports.createdAt));
+    .innerJoin(users, eq(users.id, expenseReports.ownerId))
+    .where(and(...conditions))
+    // created_at breaks ties so paging is stable: without it two reports with
+    // the same total can swap places between page 1 and page 2.
+    .orderBy(orderBy[filters.sort], desc(expenseReports.createdAt))
+    .limit(filters.perPage)
+    .offset(offset);
+
+  const matchCount = rows.length ? Number(rows[0].matchCount) : 0;
+
+  return {
+    rows: rows.map(({ report, matchCount: _ignored, ...rest }) => ({ ...report, ...rest })),
+    matchCount,
+    page: filters.page,
+    perPage: filters.perPage,
+    pageCount: Math.max(1, Math.ceil(matchCount / filters.perPage)),
+  };
+}
+
+/** Everyone, for the owner filter. Small table; no need to paginate it. */
+export async function listUsers(): Promise<User[]> {
+  return db.select().from(users).orderBy(asc(users.name));
+}
+
+/**
+ * Goal 7's CSV: approved but not yet paid — the money the company currently
+ * owes. Archived reports are excluded; an archived report is not a live debt.
+ */
+export async function getReimbursementsDue(): Promise<
+  (ExpenseReport & { total: string; ownerName: string; ownerEmail: string; decidedByName: string | null })[]
+> {
+  const decider = sql<string | null>`(select d.name from ${users} d where d.id = ${expenseReports.decidedById})`;
+
+  const rows = await db
+    .select({
+      report: expenseReports,
+      total: totalOf(),
+      ownerName: users.name,
+      ownerEmail: users.email,
+      decidedByName: decider,
+    })
+    .from(expenseReports)
+    .innerJoin(users, eq(users.id, expenseReports.ownerId))
+    .where(and(eq(expenseReports.status, "approved"), isNull(expenseReports.archivedAt)))
+    .orderBy(asc(expenseReports.decidedAt));
 
   return rows.map(({ report, ...rest }) => ({ ...report, ...rest }));
 }

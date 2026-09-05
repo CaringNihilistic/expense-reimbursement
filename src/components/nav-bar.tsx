@@ -20,7 +20,9 @@ export function NavBar({ user }: { user: User }) {
         <Link href="/dashboard" style={{ fontWeight: 600, textDecoration: "none" }}>
           Expense Reimbursement
         </Link>
-        <Link href="/reports">My reports</Link>
+        {/* Not "My reports" any more: since goal 6 this list spans everyone
+            the viewer may see, with owner as one filter among several. */}
+        <Link href="/reports">Reports</Link>
         {/* Cosmetic only — /approvals is guarded by requireApprover(). */}
         {isApprover(user) ? <Link href="/approvals">Approvals</Link> : null}
       </nav>

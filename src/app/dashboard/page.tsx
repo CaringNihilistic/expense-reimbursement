@@ -25,13 +25,14 @@ export default async function DashboardPage() {
       </p>
 
       <div className="card" style={{ marginTop: "1.5rem" }}>
-        <h2>My reports</h2>
+        <h2>Reports</h2>
         <p className="muted" style={{ marginTop: 0 }}>
-          Create expense reports, add line items, and archive ones you no longer need in the
-          default view.
+          Create expense reports and add line items. The list searches by title and filters by
+          status, owner and assigned approver — an employee sees only their own, an approver sees
+          everything that has left draft.
         </p>
         <Link href="/reports" className="button-link">
-          Go to my reports
+          Go to reports
         </Link>
       </div>
 

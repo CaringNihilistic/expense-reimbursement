@@ -11,7 +11,7 @@ Built for Assignment 11 — the brief is kept verbatim in [docs/brief.md](docs/b
 |---|---|
 | App | Next.js 15 (App Router), TypeScript, React 19 |
 | Data access | Drizzle ORM over `postgres.js` |
-| Database | PostgreSQL 16 (Neon in production, Docker locally) |
+| Database | PostgreSQL — 18 on Neon in production, 16 in Docker locally |
 | Auth | bcryptjs + a signed JWT session cookie (`jose`) |
 | Tests | Vitest |
 
@@ -81,9 +81,42 @@ function `canTransition()` is the only thing in the codebase permitted to change
 
 ## Deployment
 
-Vercel for the app, Neon for Postgres, both on free tiers. Use Neon's **pooled** connection string
-(the host contains `-pooler`); serverless functions open a connection per invocation and will
-exhaust a direct one. `src/db/index.ts` sets `prepare: false` for the same reason — pgbouncer in
-transaction mode cannot hold server-side prepared statements.
+Live at **https://expense-reimbursement-blush.vercel.app** — Vercel for the app, Neon for Postgres,
+both on free tiers.
 
-Set `DATABASE_URL` and `AUTH_SECRET` as environment variables in Vercel. Never commit them.
+Use Neon's **pooled** connection string (the host contains `-pooler`); serverless functions open a
+connection per invocation and will exhaust a direct one. `src/db/index.ts` sets `prepare: false` for
+the same reason — pgbouncer in transaction mode cannot hold server-side prepared statements.
+
+Set `DATABASE_URL` and `AUTH_SECRET` as environment variables in Vercel **before the first build**,
+not after. `src/db/index.ts` throws at import time when `DATABASE_URL` is missing, and Next imports
+every route module while collecting page data, so a deploy without them fails the build rather than
+failing at runtime.
+
+Migrations are not run by the build. Point `DATABASE_URL` at Neon and run them from a workstation:
+
+```bash
+DATABASE_URL="<neon pooled url>" npm run db:migrate
+DATABASE_URL="<neon pooled url>" npm run db:seed
+```
+
+Four things worth knowing, all learned the hard way:
+
+- **Neon's compute sleeps.** The free tier scales to zero, and the first request after an idle
+  period can time out rather than merely being slow — the first `db:seed` against Neon died with
+  `CONNECT_TIMEOUT` and the identical command succeeded straight after, because the first attempt is
+  what woke the compute. Retry once.
+- **`channel_binding=require`** in Neon's connection string is fine with `postgres.js`. It was worth
+  checking rather than assuming, since it is a libpq parameter.
+- **Vercel functions default to `iad1`** (us-east-1) while this database is in `us-east-2`. Setting
+  the function region to `cle1` (Cleveland, us-east-2) in Settings → Functions co-locates them.
+- **The obvious hostname was taken.** `expense-reimbursement.vercel.app` already belongs to an
+  unrelated app, so Vercel assigned a suffixed name. Check what you actually deployed to before
+  pointing anyone at a URL.
+
+The ten checks in `scripts/verify-constraints.sql` were run against Neon as well as locally, so the
+append-only trigger and every CHECK constraint are known to exist in production, not just in Docker:
+
+```bash
+docker compose exec -T -e PGURL="<neon pooled url>" db sh -c 'psql "$PGURL" -f -' < scripts/verify-constraints.sql
+```

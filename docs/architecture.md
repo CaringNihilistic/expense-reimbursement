@@ -10,7 +10,7 @@ There are three, and one of them is a browser.
 | Piece | Where it runs | Talks to |
 |---|---|---|
 | Next.js app (App Router) | Vercel, Node runtime, one serverless function per route | Postgres over TLS |
-| PostgreSQL 16 | Neon, pooled endpoint | nothing outward |
+| PostgreSQL 18 | Neon (us-east-2), pooled endpoint | nothing outward |
 | Browser | The user's machine | the app over HTTPS |
 
 There is no separate API service and no client-side data layer. Server Components read directly

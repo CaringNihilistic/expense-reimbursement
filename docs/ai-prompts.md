@@ -397,3 +397,64 @@ than a measurement, and they say so.
 That distinction is the whole point of this file. A model can tell you what the code does and,
 usefully, what is wrong with it. It cannot tell you what you experienced building it, and a
 submission that pretends otherwise is exactly the kind a reviewer is right to probe.
+
+---
+
+## Testing pass — trying to break it
+
+### Prompt
+
+> do a fully testing of this project
+
+### What I got
+
+Four layers in sequence: the automated suites, a parameter-fuzzing pass, real
+Server Action payloads replayed with the wrong account, and a browser regression
+across all ten goals.
+
+**Two real bugs, both the same shape:** input that passed application validation
+and was then rejected by the *database*, reaching the user as an unhandled 500
+rather than an answer.
+
+1. `/reports/not-a-uuid` returned 500. Postgres raises on a malformed uuid at
+   the type cast instead of returning no rows, so "not a real id" and "no such
+   report" behaved differently when both should be 404. The same held for any
+   Server Action handed a crafted id — which is all of them, since a Server
+   Action is a public endpoint — and for the `owner` and `approver` filters in
+   the search query string.
+2. `amount=0` and `amount=99999999999999.99` both returned 500. The regex
+   accepted them; `numeric(12,2)` with `CHECK (amount > 0)` did not. A form
+   should refuse what the database would refuse, and say so on the field.
+
+Worth stating plainly: **neither was an injection risk.** Submitting
+`'; drop table users;--` as an id produced the same uuid cast error, and the
+`users` table was verified intact afterwards. The queries are parameterised, and
+the 500 was the type cast — which is itself evidence of that.
+
+Also confirmed clean: XSS (a title of `<script>alert(document.cookie)</script>`
+is stored raw and rendered as escaped text, with zero executable tags), and
+every route guard, cross-user read, cross-user line edit, self-approval and
+wrong-state transition — 18 checks, each asserting **both** the response and
+that the database did not change.
+
+### What I corrected — the harness, four times, again
+
+Every apparent failure beyond those two was my own test code:
+
+- A **stale dev server** from before a database reset still held port 3000, so
+  the first probe run was talking to a server whose connection pool pointed at a
+  database I had just destroyed. Everything returned 500 and none of it meant
+  anything.
+- `grep onerror=alert` "found" an XSS that was not there, because that string
+  matches inside fully escaped text too. The context had to be read, not counted.
+- Payloads lifted through a pipe kept a trailing `\r` — Python emits CRLF on
+  Windows — which corrupted the multipart field name so Next could not resolve
+  the action. From the outside that is indistinguishable from a broken guard.
+- Presence assertions used Playwright's `count()`, which does not auto-wait, so
+  they raced the render after a navigation.
+
+Four false alarms against two genuine bugs. The ratio is the lesson, and it is
+the same one as session 3: **a failing test is a claim about two things, and the
+test is the more likely liar.** What resolved every one of them was reproducing
+the failure by hand — a single `curl`, a screenshot, a byte dump — before
+touching the application code.

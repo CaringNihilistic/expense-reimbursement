@@ -1,11 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { db } from "@/db";
 import { alertDismissals } from "@/db/schema";
 import { requireApprover } from "@/lib/auth";
+import { isUuid } from "@/lib/ids";
 import { isAssignedTo } from "@/lib/alerts";
 import { ALERT_SNOOZE_DAYS } from "@/lib/constants";
 
@@ -18,6 +19,7 @@ import { ALERT_SNOOZE_DAYS } from "@/lib/constants";
  */
 export async function dismissAlert(reportId: string): Promise<void> {
   const actor = await requireApprover();
+  if (!isUuid(reportId)) notFound();
 
   // Goal 10 permits dismissal only "for a report assigned to them".
   if (!(await isAssignedTo(reportId, actor.id))) {

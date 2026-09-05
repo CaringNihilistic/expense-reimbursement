@@ -7,6 +7,7 @@ import { Timeline } from "@/components/timeline";
 import { CATEGORIES } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { capitalize, formatAmount, formatDate, formatTimestamp } from "@/lib/format";
+import { isUuid } from "@/lib/ids";
 import {
   getAssignedApprovers,
   getTimeline,
@@ -51,6 +52,10 @@ export default async function ReportDetailPage({
   const user = await requireUser();
   const { id } = await params;
   const { error, refused } = await searchParams;
+
+  // Postgres raises on a malformed uuid rather than returning no rows, so an
+  // unchecked id here is a 500 where it should be a 404.
+  if (!isUuid(id)) notFound();
 
   const report = await getVisibleReport(id, user);
   if (!report) notFound();

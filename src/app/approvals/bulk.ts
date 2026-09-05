@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { expenseReports, reportEvents } from "@/db/schema";
 import { requireApprover } from "@/lib/auth";
+import { isUuid } from "@/lib/ids";
 import { canTransition, type TransitionAction } from "@/lib/transitions";
 import { encodeBulkResult, type BulkOutcome } from "@/lib/bulk-result";
 
@@ -31,7 +32,9 @@ const MAX_SELECTION = 25;
 async function bulk(action: Extract<TransitionAction, "approve" | "reject">, formData: FormData) {
   const actor = await requireApprover();
 
-  const ids = [...new Set(formData.getAll("reportIds").map(String))].slice(0, MAX_SELECTION);
+  const ids = [...new Set(formData.getAll("reportIds").map(String))]
+    .filter(isUuid)
+    .slice(0, MAX_SELECTION);
   const reason = String(formData.get("reason") ?? "");
 
   if (ids.length === 0) {

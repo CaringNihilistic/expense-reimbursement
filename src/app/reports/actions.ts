@@ -8,6 +8,8 @@ import { z } from "zod";
 import { db } from "@/db";
 import { CATEGORIES, expenseLines, expenseReports, type ExpenseReport } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
+import { isUuid } from "@/lib/ids";
+import { isValidAmount } from "@/lib/money";
 import { isEditable } from "@/lib/reports";
 
 const ReportInput = z
@@ -21,15 +23,21 @@ const ReportInput = z
 const LineInput = z.object({
   incurredOn: z.string().min(1),
   // Kept as a string end to end — see the "never parseFloat money" note on
-  // expense_lines.amount in src/db/schema.ts. The regex is the friendly
-  // front door; the database CHECK (amount > 0) is the real backstop.
-  amount: z.string().regex(/^\d+(\.\d{1,2})?$/),
+  // expense_lines.amount in src/db/schema.ts.
+  //
+  // isValidAmount enforces exactly what the column enforces: positive, and
+  // within numeric(12,2). An earlier version accepted `0` and accepted any
+  // number of digits, leaving Postgres to reject them — which reaches the user
+  // as a 500 rather than as a message on the field.
+  amount: z.string().refine(isValidAmount),
   category: z.enum(CATEGORIES),
   description: z.string().trim().min(1),
 });
 
 /** Ownership check only — no status check, since archive/restore is legal at any status. */
 async function loadOwnedReport(reportId: string, ownerId: string): Promise<ExpenseReport> {
+  if (!isUuid(reportId)) notFound();
+
   const [report] = await db
     .select()
     .from(expenseReports)
@@ -40,6 +48,8 @@ async function loadOwnedReport(reportId: string, ownerId: string): Promise<Expen
 }
 
 async function loadOwnedLine(lineId: string, ownerId: string) {
+  if (!isUuid(lineId)) notFound();
+
   const [row] = await db
     .select({ line: expenseLines, report: expenseReports })
     .from(expenseLines)

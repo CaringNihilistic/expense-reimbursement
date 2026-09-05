@@ -15,6 +15,7 @@ import {
   type ExpenseReport,
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
+import { isUuid } from "@/lib/ids";
 import { canView, isEditable } from "@/lib/reports";
 import { canTransition, type TransitionAction, type Verdict } from "@/lib/transitions";
 
@@ -29,6 +30,10 @@ import { canTransition, type TransitionAction, type Verdict } from "@/lib/transi
  */
 
 async function loadReport(reportId: string): Promise<ExpenseReport> {
+  // A Server Action is a public endpoint: the id is untrusted input, and
+  // Postgres raises on a malformed uuid rather than returning no rows.
+  if (!isUuid(reportId)) notFound();
+
   const [report] = await db
     .select()
     .from(expenseReports)

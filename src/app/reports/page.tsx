@@ -4,6 +4,7 @@ import Link from "next/link";
 import { NavBar } from "@/components/nav-bar";
 import { requireUser } from "@/lib/auth";
 import { capitalize, formatAmount, formatDate } from "@/lib/format";
+import { isUuid } from "@/lib/ids";
 import {
   SORT_FIELDS,
   STATUS_FILTERS,
@@ -30,16 +31,25 @@ type Params = {
   page?: string;
 };
 
-/** Everything the user can type into the URL is narrowed here, once. */
+/**
+ * Everything the user can type into the URL is narrowed here, once.
+ *
+ * Anything unrecognised becomes "no filter" rather than an error: a query
+ * string is not a contract, and a stale or hand-edited link should return a
+ * sensible page instead of a 500. Two things in particular have to be checked
+ * rather than passed through, because Postgres raises on them instead of
+ * returning no rows — a malformed uuid, and a null byte in text.
+ */
 function parse(params: Params): SearchFilters {
   const page = Number.parseInt(params.page ?? "1", 10);
   return {
-    q: params.q?.trim() || undefined,
+    // Postgres text cannot contain U+0000, and it errors rather than ignoring it.
+    q: params.q?.replace(/\0/g, "").trim() || undefined,
     status: STATUS_FILTERS.includes(params.status as StatusFilter)
       ? (params.status as StatusFilter)
       : undefined,
-    ownerId: params.owner || undefined,
-    approverId: params.approver || undefined,
+    ownerId: isUuid(params.owner) ? params.owner : undefined,
+    approverId: isUuid(params.approver) ? params.approver : undefined,
     archived: params.archived === "1",
     sort: SORT_FIELDS.includes(params.sort as SortField) ? (params.sort as SortField) : "submitted",
     dir: params.dir === "asc" ? "asc" : "desc",

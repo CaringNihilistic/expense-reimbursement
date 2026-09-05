@@ -210,3 +210,36 @@ td select {
   margin: 0.25rem 0;
   white-space: pre-wrap;
 }
+
+/* Bars for the dashboard. Server-rendered divs rather than a charting
+   library — the application ships no client JavaScript.
+
+   Two variants, because they scale on different axes: .bar is a horizontal
+   row whose *width* is set inline, .bar-column is a vertical bar whose
+   *height* is. A column needs its parent to have a definite height. */
+.bar {
+  background: var(--accent);
+  border-radius: 2px;
+  min-height: 0.55rem;
+  height: 0.55rem;
+}
+
+.bar-column {
+  background: var(--accent);
+  border-radius: 2px 2px 0 0;
+  width: 100%;
+  min-height: 2px;
+}
+
+.badge {
+  display: inline-block;
+  margin-left: 0.35rem;
+  min-width: 1.15rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--danger);
+  color: var(--bg);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-align: center;
+}
